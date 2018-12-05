@@ -18,6 +18,7 @@ import sys
 from nltk import PorterStemmer
 from os import path
 import json
+import random
 
 from argparse import ArgumentParser
 
@@ -274,6 +275,7 @@ if __name__ == "__main__":
 
     se = SetExpand(np2vec_model_file=args.np2vec_model_file, binary=args.binary,
                    word_ngrams=args.word_ngrams, grouping=args.grouping)
+
     ps = PorterStemmer()
     curr_dir = path.dirname(path.realpath(__file__))
 
@@ -284,26 +286,38 @@ if __name__ == "__main__":
     # good_set = json.load(open(path_to_good_gold_sets, 'r'))
 
     # read in all query data
-    new_set = json.load(open(path_to_new_gold_sets, 'r'))
-    for st in new_set:
-        if path.isfile(path_to_results + st + "/exp3.txt"):
-            # determine whether there are more than 6 recognized entities in the set
-            stemmed_entities = []
-            for e in new_set[st]["entities"]:
-                tmp = ps.stem(e)
-                if tmp in 
-                stemmed_entities.append(ps.stem(e))
-            print("~~~~~~~~~~ {}: {} ~~~~~~~~~~".format(st, new_set[st]["title"]))
-            print("{} / {} are recognized by SetExpan as entities...".format(len(good_set[st]["entities"]), len(new_set[st]["entities"])))
-            mentions = []
-            for e in good_set[st]["entities"]:
-                mentions.append(good_set[st]["entities"][e][0][0])
-            print("Entities have {:.1f} mentions in ap89 on average...".format(sum(mentions)/len(mentions)))
-            average_mentions.append(sum(mentions)/len(mentions))
-            size_good_set.append(len(good_set[st]["entities"]))
-            i = 1
-            precision_list = []
-            recall_list = []
+    def eval(self):
+        new_set = json.load(open(path_to_new_gold_sets, 'r'))
+        for st in new_set:
+            if path.isfile(path_to_results + st + "/exp3.txt"):
+                # determine whether there are more than 6 recognized entities in the set
+                stemmed_entities = []
+                for e in new_set[st]["entities"]:
+                    tmp = ps.stem(e)
+                    if self.term2id(tmp) is not None:
+                        stemmed_entities.append(ps.stem(e))
+                if (len(stemmed_entities) > 5):
+                    print("~~~~~~~~~~ {}: {} ~~~~~~~~~~".format(st, new_set[st]["title"]))
+                    print("{} / {} are recognized by SetExpan as entities...".format(len(stemmed_entities), len(new_set[st]["entities"])))
+                    # mentions = []
+                    # for e in good_set[st]["entities"]:
+                    #     mentions.append(good_set[st]["entities"][e][0][0])
+                    # print("Entities have {:.1f} mentions in ap89 on average...".format(sum(mentions)/len(mentions)))
+                    # average_mentions.append(sum(mentions)/len(mentions))
+                    # size_good_set.append(len(good_set[st]["entities"]))
+
+                    # randomly sample three seeds from stemmed entities
+                    # 3 random samples for each set
+                    i = 1
+                    while i < 4: 
+                        seeds = random.sample(stemmed_entities, 3)
+                        print("{} experiment {}: {}".format(st, i, str(seeds)))
+                        entities_to_retrieve = [ps.stem(x) for x in stemmed_entities if x not in seeds]
+                        results = se.expand(seeds, args.topn)
+                else:
+                    pass
+            else:
+                pass
 
 
 

@@ -288,6 +288,8 @@ if __name__ == "__main__":
     # read in all query data
     def eval(self):
         new_set = json.load(open(path_to_new_gold_sets, 'r'))
+        precisions = []
+        recalls = []
         for st in new_set:
             if path.isfile(path_to_results + st + "/exp3.txt"):
                 # determine whether there are more than 6 recognized entities in the set
@@ -299,6 +301,10 @@ if __name__ == "__main__":
                 if (len(stemmed_entities) > 5):
                     print("~~~~~~~~~~ {}: {} ~~~~~~~~~~".format(st, new_set[st]["title"]))
                     print("{} / {} are recognized by SetExpan as entities...".format(len(stemmed_entities), len(new_set[st]["entities"])))
+
+                    # local tmp storage
+                    tmp_prec = []
+                    tmp_rec = []
                     # mentions = []
                     # for e in good_set[st]["entities"]:
                     #     mentions.append(good_set[st]["entities"][e][0][0])
@@ -314,6 +320,16 @@ if __name__ == "__main__":
                         print("{} experiment {}: {}".format(st, i, str(seeds)))
                         entities_to_retrieve = [ps.stem(x) for x in stemmed_entities if x not in seeds]
                         results = se.expand(seeds, args.topn)
+                        match_cnt = 0
+                        for ent in results:
+                            if ent in entities_to_retrieve:
+                                match_cnt += 1
+                        recall = match_cnt / len(entities_to_retrieve)
+                        precision = match_cnt / args.topn
+                        print("recall: {0}/{1} [{2:.2%}]; precision: {3}/{4} [{5:.2%}]".format(match_cnt, len(entities_to_retrieve), recall, match_cnt, args.topn, precision))
+                        precisions.append(precision)
+                        recalls.append(recall)
+                        i += 1
                 else:
                     pass
             else:

@@ -6,7 +6,7 @@ There's a minor bug in the [pretrained model](http://nervana-modelzoo.s3.amazona
 
 `cat enwiki-20171201_pretrained_set_expansion.txt | grep -n 0.50.118487`
 
-you will see that there's a invalid "number" at line 1066088, which may cause the model to fail.
+you will see that there's an invalid "number" at line 1066088, which may cause the model to fail.
 
 Fix:
 

@@ -317,9 +317,17 @@ class SetExpand(object):
             else:
                 f1_score.append(precisions[i] * recalls[i] / (precisions[i] + recalls[i]))
             i += 1
+        print ("\nTop 10 sets that perform the best are:")
+        for idx in sorted(range(len(f1_score)), key=lambda i: f1_score[i], reverse=True)[:10]:
+            print("- {} (recall: {:.2f}, precision: {:.2f})".format(new_set[list(new_set.keys())[idx]]["title"], recalls[idx], precisions[idx]))
+
+        print ("\nTop 10 sets that perform the worst are:")
+        for idx in sorted(range(len(f1_score)), key=lambda i: f1_score[i], reverse=False)[:10]:
+            print("- {} (recall: {:.2f}, precision: {:.2f})".format(new_set[list(new_set.keys())[idx]]["title"], recalls[idx], precisions[idx]))
         f1_score.sort(reverse = True)
         self.plot_line(range(len(f1_score)), f1_score, "sets", "f1 score")
         print(ap*ar / (ap+ar))
+        
 
 
 if __name__ == "__main__":

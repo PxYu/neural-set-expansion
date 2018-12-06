@@ -19,6 +19,7 @@ from nltk import PorterStemmer
 from os import path
 import json
 import random
+import matplotlib.pyplot as plt
 
 from argparse import ArgumentParser
 
@@ -239,6 +240,86 @@ class SetExpand(object):
         res = self.np2vec_model.n_similarity(seed_id, list(term_id))
         logger.info("similarity result: %s", str(res))
         return res
+    
+    def plot_scatter(self, x, y, s, xlabel, ylabel):
+        plt.scatter(x, y, s=[1000 * i / sum(s) for i in s])
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.show()
+
+    def plot_line(self, x, y, xlabel, ylabel):
+        plt.plot(x, y, 'o-', c = 'b')
+        plt.axhline(0, color='black', linestyle="--")
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.show()
+
+    def eval(self):
+        curr_dir = path.dirname(path.realpath(__file__))
+        path_to_new_gold_sets = curr_dir + "/new_gold_set.json"
+        new_set = json.load(open(path_to_new_gold_sets, 'r'))
+        fo = open(curr_dir + "/log.txt", 'w+')
+        ps = PorterStemmer()
+        precisions = []
+        recalls = []
+        num_good_set = 0
+        num_bad_set = 0
+        for st in new_set:
+            # determine whether there are more than 6 recognized entities in the set
+            stemmed_entities = []
+            for e in new_set[st]["entities"]:
+                tmp = ps.stem(e)
+                if self.term2id(tmp) is not None:
+                    stemmed_entities.append(ps.stem(e))
+            if (len(stemmed_entities) > 5):
+                fo.write(st + "\n")
+                num_good_set += 1
+                print("~~~~~~~~~~ {}: {} ~~~~~~~~~~".format(st, new_set[st]["title"]))
+                print("{} / {} are recognized by SetExpan as entities...".format(len(stemmed_entities), len(new_set[st]["entities"])))
+
+                # local tmp storage
+                tmp_prec = []
+                tmp_rec = []
+                # 3 random samples for each set
+                i = 1
+                while i < 4: 
+                    seeds = random.sample(stemmed_entities, 3)
+                    print("{} experiment {}: {}".format(st, i, str(seeds)))
+                    entities_to_retrieve = [ps.stem(x) for x in stemmed_entities if x not in seeds]
+                    results = [x[0] for x in se.expand(seeds, args.topn)]
+                    match_cnt = 0
+                    for ent in results:
+                        if ent in entities_to_retrieve:
+                            match_cnt += 1
+                    recall = match_cnt / len(entities_to_retrieve)
+                    precision = match_cnt / args.topn
+                    print("recall: {0}/{1} [{2:.2%}]; precision: {3}/{4} [{5:.2%}]".format(match_cnt, len(entities_to_retrieve), recall, match_cnt, args.topn, precision))
+                    tmp_prec.append(precision)
+                    tmp_rec.append(recall)
+                    fo.write(str(entities_to_retrieve) + "\n")
+                    fo.write(str(results) + "\n")
+                    fo.write(str(match_cnt) + "\n\n")
+                    i += 1
+                precisions.append(sum(tmp_prec)/len(tmp_prec))
+                recalls.append(sum(tmp_rec)/len(tmp_rec))
+            else:
+                # there are less than 6 entities that are recognized by the system
+                print("Not enought entities in set {}".format(st))
+                num_bad_set += 1
+        print("{}/{} sets are good for the task...".format(num_good_set, num_bad_set + num_good_set))
+        ap = sum(precisions) / len(precisions)
+        ar = sum(recalls) / len(recalls)
+        f1_score = []
+        i = 0
+        while (i < len(precisions)):
+            if (precisions[i] + recalls[i] == 0):
+                f1_score.append(-1)
+            else:
+                f1_score.append(precisions[i] * recalls[i] / (precisions[i] + recalls[i]))
+            i += 1
+        f1_score.sort(reverse = True)
+        self.plot_line(range(len(f1_score)), f1_score, "sets", "f1 score")
+        print(ap*ar / (ap+ar))
 
 
 if __name__ == "__main__":
@@ -276,66 +357,7 @@ if __name__ == "__main__":
     se = SetExpand(np2vec_model_file=args.np2vec_model_file, binary=args.binary,
                    word_ngrams=args.word_ngrams, grouping=args.grouping)
 
-    ps = PorterStemmer()
-    curr_dir = path.dirname(path.realpath(__file__))
-
-    path_to_results = curr_dir + "/../../../../../SetExpan/data/ap89/results/"
-    path_to_new_gold_sets = curr_dir + "/../../../../../alternate_queries/data/new_gold_set.json"
-    path_to_good_gold_sets = curr_dir + "/../../../../../alternate_queries/data/good_gold_set.json"
-
-    # good_set = json.load(open(path_to_good_gold_sets, 'r'))
-
-    # read in all query data
-    def eval(self):
-        new_set = json.load(open(path_to_new_gold_sets, 'r'))
-        precisions = []
-        recalls = []
-        for st in new_set:
-            if path.isfile(path_to_results + st + "/exp3.txt"):
-                # determine whether there are more than 6 recognized entities in the set
-                stemmed_entities = []
-                for e in new_set[st]["entities"]:
-                    tmp = ps.stem(e)
-                    if self.term2id(tmp) is not None:
-                        stemmed_entities.append(ps.stem(e))
-                if (len(stemmed_entities) > 5):
-                    print("~~~~~~~~~~ {}: {} ~~~~~~~~~~".format(st, new_set[st]["title"]))
-                    print("{} / {} are recognized by SetExpan as entities...".format(len(stemmed_entities), len(new_set[st]["entities"])))
-
-                    # local tmp storage
-                    tmp_prec = []
-                    tmp_rec = []
-                    # mentions = []
-                    # for e in good_set[st]["entities"]:
-                    #     mentions.append(good_set[st]["entities"][e][0][0])
-                    # print("Entities have {:.1f} mentions in ap89 on average...".format(sum(mentions)/len(mentions)))
-                    # average_mentions.append(sum(mentions)/len(mentions))
-                    # size_good_set.append(len(good_set[st]["entities"]))
-
-                    # randomly sample three seeds from stemmed entities
-                    # 3 random samples for each set
-                    i = 1
-                    while i < 4: 
-                        seeds = random.sample(stemmed_entities, 3)
-                        print("{} experiment {}: {}".format(st, i, str(seeds)))
-                        entities_to_retrieve = [ps.stem(x) for x in stemmed_entities if x not in seeds]
-                        results = se.expand(seeds, args.topn)
-                        match_cnt = 0
-                        for ent in results:
-                            if ent in entities_to_retrieve:
-                                match_cnt += 1
-                        recall = match_cnt / len(entities_to_retrieve)
-                        precision = match_cnt / args.topn
-                        print("recall: {0}/{1} [{2:.2%}]; precision: {3}/{4} [{5:.2%}]".format(match_cnt, len(entities_to_retrieve), recall, match_cnt, args.topn, precision))
-                        precisions.append(precision)
-                        recalls.append(recall)
-                        i += 1
-                else:
-                    pass
-            else:
-                pass
-
-
+    se.eval()
 
     # enter_seed_str = 'Enter the seed (comma-separated seed terms):'
     # logger.info(enter_seed_str)
